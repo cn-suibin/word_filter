@@ -16,6 +16,20 @@ require_once('FilterHelper.php');
 // http服务绑定的ip及端口
 $serv = new swoole_http_server("0.0.0.0", 9502);
 
+
+
+// 字典树文件路径，默认当时目录下
+$tree_file = 'blackword.tree';
+
+// 清除文件状态缓存
+clearstatcache();
+
+// 获取请求时，字典树文件的修改时间
+$new_mtime = filemtime($tree_file);
+
+// 获取最新trie-tree对象
+$trie = FilterHelper::get_trie($tree_file, $new_mtime);
+
 $serv->set(array(
        //'worker_num'=>4,//默认不设置，或者CPU数量
        //'max_request'=>10000,//限制并发数，会降低性能
@@ -25,7 +39,7 @@ $serv->set(array(
 //    'group' => 'www'
 ));
 
- $serv->on('Start', function($serv){
+ $serv->on('Start', function($serv) use($trie){
 
         $name="guanjianzi_swoole";
 
@@ -39,17 +53,12 @@ $serv->set(array(
             }
         }
 
-
-
-
-
-
 });
 
 /**
  * 处理请求
  */
-$serv->on('Request', function($request, $response) {
+$serv->on('Request', function($request, $response) use($trie) {
 
 //    xhprof_enable();
 
@@ -60,19 +69,6 @@ $serv->on('Request', function($request, $response) {
 
     if (!empty($content)) {
 	$arr_ret['memory'] = (memory_get_peak_usage() / 1024 / 1024) . 'M';
-
-        // 字典树文件路径，默认当时目录下
-        $tree_file = 'blackword.tree';
-
-        // 清除文件状态缓存
-        clearstatcache();
-
-        // 获取请求时，字典树文件的修改时间
-         $new_mtime = filemtime($tree_file);
-
-        // 获取最新trie-tree对象
-        $trie = FilterHelper::get_trie($tree_file, $new_mtime);
-
         // 执行查找敏感词
         $stime = microtime(true);
         $arr_ret['data'] = $trie->search_all($content);
